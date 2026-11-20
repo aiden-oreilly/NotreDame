@@ -18,8 +18,8 @@ export const store = {
   emit(what) { for (const fn of this.listeners) fn(what); },
 };
 
-const toDbCourse = (c, user) => ({ id: c.id, user_id: user.id, code: c.code || null, title: c.title, building_id: c.building || null, room: c.room || null, days: c.days, start_time: c.start, end_time: c.end, color: c.color || 'gold', source: c.source || 'manual', source_uid: c.source_uid || null });
-const fromDbCourse = r => ({ id: r.id, code: r.code, title: r.title, building: r.building_id, room: r.room, days: r.days, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5), color: r.color, source: r.source, source_uid: r.source_uid });
+const toDbCourse = (c, user) => ({ id: c.id, user_id: user.id, code: c.code || null, title: c.title, building_id: c.building || null, room: c.room || null, days: c.days, start_time: c.start, end_time: c.end, color: c.color || 'gold', source: c.source || 'manual', source_uid: c.source_uid || null, term: c.term || null, crn: c.crn || null, section: c.section || null, credits: c.credits || null });
+const fromDbCourse = r => ({ id: r.id, code: r.code, title: r.title, building: r.building_id, room: r.room, days: r.days, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5), color: r.color, source: r.source, source_uid: r.source_uid, term: r.term, crn: r.crn, section: r.section, credits: r.credits });
 const toDbCard = (c, user) => ({ id: c.id, user_id: user.id, title: c.title, owner: c.owner, status: c.status, done_when: c.done_when || null, check_in: c.check_in || null, building_id: c.building_id || null, closed_at: c.closed_at || null });
 
 export async function initStore() {

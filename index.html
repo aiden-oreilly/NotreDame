@@ -6,8 +6,9 @@
 <title>Domer OS · University of Notre Dame</title>
 <meta name="description" content="A living 3D model of the University of Notre Dame with your schedule, calendar and campus history.">
 <meta name="theme-color" content="#0C2340">
+<meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
@@ -19,18 +20,19 @@
   <header class="top">
     <div class="brand">
       <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c-5.2 0-9 4.4-9 10v2h18v-2c0-5.6-3.8-10-9-10z" fill="url(#g1)"/><rect x="5" y="15" width="22" height="3" fill="#E1B84B"/><rect x="7" y="18" width="18" height="10" fill="none" stroke="#E1B84B" stroke-width="1.6"/><path d="M16 0v4" stroke="#E1B84B" stroke-width="1.6"/><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6D77A"/><stop offset="1" stop-color="#B98D1E"/></linearGradient></defs></svg>
-      <div class="wordmark"><span class="uni">University of Notre Dame</span><span class="prod">Domer OS <i>Campus</i></span></div>
+      <div class="wordmark"><span class="uni"><small>University of</small>Notre Dame</span><span class="prod">Domer OS</span></div>
     </div>
     <nav class="tabs" role="tablist" aria-label="Sections">
-      <button role="tab" data-tab="explore" class="on"><b>01</b>Explore</button>
-      <button role="tab" data-tab="schedule"><b>02</b>Schedule</button>
-      <button role="tab" data-tab="calendar"><b>03</b>Calendar</button>
-      <button role="tab" data-tab="dispatch"><b>04</b>Dispatch</button>
+      <button role="tab" data-tab="explore" class="on">Map</button>
+      <button role="tab" data-tab="schedule">My day</button>
+      <button role="tab" data-tab="courses">Courses</button>
+      <button role="tab" data-tab="calendar">Calendar</button>
+      <button role="tab" data-tab="dispatch">Tasks</button>
     </nav>
     <div class="right">
       <span class="wx" id="wx" title="Live conditions on campus"><i></i><span>South Bend</span></span>
       <button class="kbtn" id="btnPalette" aria-label="Search">Search <kbd>⌘K</kbd></button>
-      <button class="tour-btn" id="btnTour">President's Tour</button>
+      <button class="tour-btn" id="btnTour">Take the tour</button>
       <button class="acct" id="btnAcct" aria-label="Account">Sign in</button>
     </div>
   </header>
@@ -39,9 +41,14 @@
     <button class="drawer-toggle" id="drawerToggle" aria-label="Collapse panel">‹</button>
     <!-- EXPLORE -->
     <section class="pane on" id="pane-explore">
-      <div class="eyebrow">01 · Explore</div>
+      <div class="eyebrow">Campus map</div>
       <h1>The campus, <em>exactly.</em></h1>
-      <p class="lede">Every building footprint comes from OpenStreetMap, every roof and lawn from aerial imagery, every walk from the real path network. Scrub through 140 years below.</p>
+      <p class="lede">Real buildings, real lawns, real walking paths. Drag to look around, scroll to zoom, tap any building.</p>
+      <ol class="start" id="startHere">
+        <li data-go="courses"><b>1</b><div><strong>Find your classes</strong><span>Search any Notre Dame course by number, title or CRN.</span></div><i>→</i></li>
+        <li data-go="calendar"><b>2</b><div><strong>Or link your calendar</strong><span>We pull your classes in automatically.</span></div><i>→</i></li>
+        <li data-go="schedule"><b>3</b><div><strong>See your day</strong><span>Next class, walk time and when to leave.</span></div><i>→</i></li>
+      </ol>
       <div class="stats" id="stats"></div>
       <div class="search"><input id="bSearch" placeholder="Find a building, hall or landmark" autocomplete="off"></div>
       <div class="chips" id="catChips"></div>
@@ -50,7 +57,7 @@
     </section>
     <!-- SCHEDULE -->
     <section class="pane" id="pane-schedule">
-      <div class="eyebrow">02 · Schedule</div>
+      <div class="eyebrow">My day</div>
       <h1 id="schedTitle">Today</h1>
       <div id="nextUp"></div>
       <div class="rule-h"><span>Today's plan</span><button class="link" id="btnRecap">Morning recap</button></div>
@@ -68,9 +75,26 @@
       </form>
       <ol class="courses" id="courseList"></ol>
     </section>
+    <!-- COURSES -->
+    <section class="pane" id="pane-courses">
+      <div class="eyebrow">Course catalog</div>
+      <h1>Every class at Notre Dame, <em>by the numbers.</em></h1>
+      <p class="lede" id="catLede">Search by course number, title or CRN. Add a section and it lands on your map and in your day.</p>
+      <div class="seg light" id="termSeg" role="tablist" aria-label="Term"></div>
+      <div class="search big"><input id="catQ" placeholder="Try CSE 20110, Calculus, or 30835" autocomplete="off" inputmode="search"></div>
+      <div class="filters">
+        <select id="catCore" aria-label="Core requirement"><option value="">Any requirement</option></select>
+        <label class="check"><input type="checkbox" id="catOpen"> Open seats only</label>
+      </div>
+      <div id="catResults" class="cat-results"></div>
+      <div class="rule-h"><span id="planTitle">My plan</span><button class="link" id="btnCopyCrn">Copy CRNs for NOVO</button></div>
+      <div id="planSummary" class="plan-sum"></div>
+      <ol class="courses" id="planList"></ol>
+      <p class="fine" id="catFine"></p>
+    </section>
     <!-- CALENDAR -->
     <section class="pane" id="pane-calendar">
-      <div class="eyebrow">03 · Calendar</div>
+      <div class="eyebrow">Calendar</div>
       <h1>Link your calendar, <em>get your courses.</em></h1>
       <p class="lede">Domer OS reads your Google Calendar, finds the weekly events that are classes, matches each to its building and puts them on the map. It never writes to your calendar.</p>
       <div class="methods">
@@ -90,9 +114,9 @@
     </section>
     <!-- DISPATCH -->
     <section class="pane" id="pane-dispatch">
-      <div class="eyebrow">04 · Dispatch</div>
-      <h1>One queue. <em>You close.</em></h1>
-      <p class="lede">Every job is a card with an owner, a status, a check-in date and one "Done when" line. Agents prepare; only you mark a card Done, and each close goes in the decision log.</p>
+      <div class="eyebrow">Tasks</div>
+      <h1>One list. <em>You close.</em></h1>
+      <p class="lede">Write down a job, who is doing it, and what "done" looks like. Helpers can move a task forward; only you can mark it done.</p>
       <form class="form" id="cardForm">
         <label class="full">New card<input id="kTitle" placeholder="What's the job?" required></label>
         <label>Owner<select id="kOwner"><option>Me</option><option>Muse</option><option>Claude</option></select></label>
@@ -158,7 +182,7 @@
   </div>
 
   <div class="palette" id="palette" hidden><div class="pbox"><input id="palInput" placeholder="Fly to a building, change the season, travel to 1931…" autocomplete="off"><ol id="palList"></ol></div></div>
-  <div class="modal" id="authModal" hidden><div class="mbox"><button class="x" data-close>×</button><div class="eyebrow">Account</div><h2>Sign in to sync</h2><p>Your courses and queue stay on this device until you sign in. Signing in keeps them in sync across your phone and laptop, privately.</p><form id="authForm"><input id="authEmail" type="email" placeholder="netid@nd.edu" required><button class="btn gold">Email me a sign-in link</button></form><button class="btn" id="authGoogle">Continue with Google</button><p class="fine" id="authNote"></p></div></div>
+  <div class="modal" id="authModal" hidden><div class="mbox"><button class="x" data-close aria-label="Close">×</button><div class="eyebrow">Sign in</div><h2>Keep your plan <em>everywhere.</em></h2><p>Everything works without an account and stays on this device. Sign in to sync your classes and tasks to your phone and laptop. Nobody else can see them.</p><div class="providers" id="providers"></div><form id="authForm" hidden><input id="authEmail" type="email" placeholder="netid@nd.edu" required autocomplete="email"><button class="btn gold">Email me a sign-in link</button></form><p class="fine" id="authNote"></p></div></div>
 </div>
 <script type="module" src="/src/main.js"></script>
 </body>

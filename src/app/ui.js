@@ -1,7 +1,9 @@
 import { ERAS, TOUR } from '../data/meta.js';
 import { CONFIG } from '../config.js';
 import { parseICS, detectCourses, expand, fetchICS, fetchGoogleEvents, ndDate, wall } from './calendar.js';
-import { saveCourse, deleteCourse, importCourses, saveCard, deleteCard, logDecision, setEvents, setPref, signInEmail, signInGoogle, signOut, supabase } from './store.js';
+import { saveCourse, deleteCourse, importCourses, saveCard, deleteCard, logDecision, setEvents, setPref, signInGoogle, supabase } from './store.js';
+import { PROVIDERS, signIn, signOut, ndIdentity } from './auth.js';
+import { initCourses } from './courses-ui.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,7 +24,9 @@ export function initUI(world, store) {
   const showTab = (t) => { $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); $$('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + t)); $('#drawer').classList.remove('closed'); if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); };
   $$('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   $('#drawerToggle').onclick = () => $('#drawer').classList.toggle('closed');
-  if (/^#(explore|schedule|calendar|dispatch)$/.test(location.hash)) showTab(location.hash.slice(1));
+  if (/^#(explore|schedule|courses|calendar|dispatch)$/.test(location.hash)) showTab(location.hash.slice(1));
+  $$('#startHere [data-go]').forEach(li => li.onclick = () => showTab(li.dataset.go));
+  initCourses({ world, store, toast, showTab, esc });
 
   // ---------- explore ----------
   let cat = 'all';
@@ -45,7 +49,7 @@ export function initUI(world, store) {
     const sel = $('#cBld'); sel.innerHTML = world.directory.map(r => `<option value="${r.slug}">${esc(r.name)}</option>`).join('');
     const home = $('#cHome'); home.innerHTML = '<option value="">Not set</option>' + world.directory.filter(r => r.meta?.cat === 'residence' || /Hall$/.test(r.name)).map(r => `<option value="${r.slug}">${esc(r.name)}</option>`).join('');
     home.value = store.prefs.home || ''; home.onchange = () => { setPref('home', home.value || null); renderSchedule(); };
-    renderList(); buildLabels(); renderSchedule(); renderCalendarList();
+    renderList(); buildLabels(); renderSchedule(); renderCalendarList(); world.renderPlan?.();
   });
 
   // ---------- building card ----------
@@ -129,7 +133,9 @@ export function initUI(world, store) {
   function itemsOn(date) {
     const w = wall(date); const L = DAYS[w.wd]; const out = [];
     for (const c of store.courses) {
-      if (!c.days.includes(L)) continue; const [sh, sm] = c.start.split(':').map(Number), [eh, em] = c.end.split(':').map(Number);
+      if (!c.days.includes(L)) continue;
+      // a class from the catalog only meets inside its own term (Spring classes don't show up in November)
+      const tr = c.term && world.termRange?.(c.term); if (tr) { const iso = `${w.y}-${pad(w.m)}-${pad(w.d)}`; if (iso < tr[0] || iso > tr[1]) continue; } const [sh, sm] = c.start.split(':').map(Number), [eh, em] = c.end.split(':').map(Number);
       out.push({ kind: 'class', id: c.id, title: c.title, start: ndDate(w.y, w.m, w.d, sh, sm).getTime(), end: ndDate(w.y, w.m, w.d, eh, em).getTime(), rec: world.bySlug.get(c.building), room: c.room });
     }
     const day0 = ndDate(w.y, w.m, w.d).getTime(), day1 = day0 + 864e5;
@@ -146,7 +152,7 @@ export function initUI(world, store) {
   function renderSchedule() {
     const now = Date.now(); const nx = nextUp();
     $('#schedTitle').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    if (!nx) $('#nextUp').innerHTML = `<div class="empty">Nothing scheduled this week. Link your calendar in <b>03 · Calendar</b> or add a course below.</div>`;
+    if (!nx) $('#nextUp').innerHTML = `<div class="empty">Nothing scheduled this week. Find your classes in <b>Courses</b>, link your <b>Calendar</b>, or add one by hand below.</div>`;
     else {
       const live = nx.start <= now; const ms = (live ? nx.end : nx.start) - now; const mins = Math.floor(ms / 60000);
       const cd = mins >= 1440 ? `${Math.floor(mins / 1440)}d ${Math.floor(mins % 1440 / 60)}h` : mins >= 60 ? `${Math.floor(mins / 60)}h ${pad(mins % 60)}m` : `${mins}m ${pad(Math.floor(ms / 1000) % 60)}s`;
@@ -159,7 +165,7 @@ export function initUI(world, store) {
     const items = itemsOn(new Date());
     $('#todayList').innerHTML = items.length ? items.map((i, k) => { const prev = items[k - 1]; let gap = ''; if (prev && prev.rec && i.rec && prev.rec !== i.rec) { const m = world.walkMinutes(prev.rec, i.rec); const free = Math.round((i.start - prev.end) / 60000); if (m) gap = `<li class="gap">🚶 ${Math.max(1, Math.round(m))} min walk · ${free} min between</li>`; } return gap + `<li class="${i.end < now ? 'past' : i.start <= now ? 'now' : ''}"><div class="t">${fmtT(i.start)}</div><div class="w"><b>${esc(i.title)}</b><span>${i.rec ? esc(i.rec.name) : esc(i.location || '')}${i.room ? ' · ' + esc(i.room) : ''}</span></div>${i.rec ? `<button class="tag ${i.kind === 'class' ? 'gold' : ''}" data-fly="${i.rec.id}">Map</button>` : `<span class="tag">${i.kind}</span>`}</li>`; }).join('') : '<div class="empty">No timed items today.</div>';
     $$('#todayList [data-fly]').forEach(b => b.onclick = () => world.select(world.recs[+b.dataset.fly]));
-    $('#courseList').innerHTML = store.courses.length ? store.courses.map(c => `<li><div class="swatch"></div><div class="w"><b>${esc(c.title)}</b><span>${c.days.split('').join(' ')} · ${c.start}–${c.end} · ${esc(world.bySlug.get(c.building)?.name || 'No building')}${c.room ? ' ' + esc(c.room) : ''}${c.source !== 'manual' ? ' · from calendar' : ''}</span></div><button class="tag" data-edit="${c.id}">Edit</button><button class="tag" data-del="${c.id}">×</button></li>`).join('') : '<div class="empty">No courses yet. Link your calendar to import them, or add one by hand.</div>';
+    $('#courseList').innerHTML = store.courses.length ? store.courses.map(c => `<li><div class="swatch"></div><div class="w"><b>${esc(c.title)}</b><span>${c.days.split('').join(' ')} · ${c.start}–${c.end} · ${esc(world.bySlug.get(c.building)?.name || 'No building')}${c.room ? ' ' + esc(c.room) : ''}${c.crn ? ' · CRN ' + esc(c.crn) : c.source !== 'manual' ? ' · from calendar' : ''}</span></div><button class="tag" data-edit="${c.id}">Edit</button><button class="tag" data-del="${c.id}">×</button></li>`).join('') : '<div class="empty">No courses yet. Search the <b>Courses</b> tab, link your calendar, or add one by hand.</div>';
     $$('#courseList [data-del]').forEach(b => b.onclick = () => deleteCourse(b.dataset.del));
     $$('#courseList [data-edit]').forEach(b => b.onclick = () => openCourseForm(store.courses.find(c => c.id === b.dataset.edit)));
   }
@@ -236,12 +242,17 @@ export function initUI(world, store) {
   renderBoard();
 
   // ---------- account ----------
-  function renderAuth() { $('#btnAcct').textContent = store.user ? (store.user.email || 'Account').split('@')[0] : 'Sign in'; }
-  $('#btnAcct').onclick = async () => { if (store.user) { if (confirm('Sign out of Domer OS on this device?')) await signOut(); return; } $('#authModal').hidden = false; $('#authEmail').focus(); };
+  function renderAuth() { const id = ndIdentity(store.user); $('#btnAcct').textContent = store.user ? (id?.netid || (store.user.email || 'Account').split('@')[0]) : 'Sign in'; }
+  $('#providers').innerHTML = PROVIDERS.map(p => `<button class="provider ${p.enabled() ? '' : 'soon'}" data-p="${p.key}"><b>${esc(p.label)}</b><span>${esc(p.enabled() ? p.note : p.soon)}</span>${p.enabled() ? '<i>→</i>' : '<em>Coming soon</em>'}</button>`).join('');
+  $$('#providers [data-p]').forEach(b => b.onclick = async () => {
+    const key = b.dataset.p; $('#authNote').textContent = '';
+    if (key === 'email') { $('#authForm').hidden = false; $('#authEmail').focus(); return; }
+    const { error } = await signIn(key); if (error) $('#authNote').textContent = error.message;
+  });
+  $('#btnAcct').onclick = async () => { if (store.user) { if (confirm('Sign out of Domer OS on this device?')) { await signOut(); store.user = null; store.emit('auth'); } return; } $('#authModal').hidden = false; };
   $$('#authModal [data-close]').forEach(b => b.onclick = () => { $('#authModal').hidden = true; });
   $('#authModal').onclick = e => { if (e.target.id === 'authModal') $('#authModal').hidden = true; };
-  $('#authForm').onsubmit = async e => { e.preventDefault(); const { error } = await signInEmail($('#authEmail').value.trim()); $('#authNote').textContent = error ? error.message : 'Check your inbox for a sign-in link.'; };
-  $('#authGoogle').onclick = async () => { if (!CONFIG.googleOAuth) { $('#authNote').textContent = 'Google sign-in is not enabled on this deployment yet; use the email link.'; return; } const { error } = await signInGoogle(false); if (error) $('#authNote').textContent = error.message; };
+  $('#authForm').onsubmit = async e => { e.preventDefault(); const { error } = await signIn('email', $('#authEmail').value.trim()); $('#authNote').textContent = error ? error.message : 'Check your inbox for a sign-in link.'; };
   renderAuth();
 
   // ---------- President's Tour ----------
@@ -272,20 +283,21 @@ export function initUI(world, store) {
       ...['spring', 'summer', 'fall', 'winter', 'live'].map(s => ({ l: s === 'live' ? 'Live season and weather' : `Show ${s}`, k: 'season', f: () => $(`#seasonSeg [data-s="${s}"]`).click() })),
       { l: 'Golden hour', k: 'light', f: () => { $('#tod').value = 17.6; $('#tod').dispatchEvent(new Event('input')); } },
       { l: 'Night on campus', k: 'light', f: () => { $('#tod').value = 21.5; $('#tod').dispatchEvent(new Event('input')); } },
+      { l: 'Find a course or CRN', k: 'courses', f: () => world.findCourse('') },
       { l: 'Link Google Calendar', k: 'calendar', f: () => showTab('calendar') },
       { l: 'Morning recap', k: 'schedule', f: () => { showTab('schedule'); $('#btnRecap').click(); } },
-      { l: 'Add a Dispatch card', k: 'dispatch', f: () => { showTab('dispatch'); $('#kTitle').focus(); } },
+      { l: 'Add a task', k: 'tasks', f: () => { showTab('dispatch'); $('#kTitle').focus(); } },
       ...world.directory.map(r => ({ l: r.name, k: r.meta?.cat || 'building', f: () => world.select(r) })),
     ];
   }
   function openPalette(mode, pick) { palPick = pick || null; $('#palette').hidden = false; const i = $('#palInput'); i.value = ''; i.placeholder = mode === 'walk' ? 'Walk from which building?' : 'Fly to a building, change the season, travel to 1931…'; i.focus(); palRender(); }
   const closePalette = () => { $('#palette').hidden = true; palPick = null; };
-  function palRender() { const q = $('#palInput').value.toLowerCase().trim(); const src = palPick ? world.directory.map(r => ({ l: r.name, k: 'from', f: () => palPick(r) })) : actions(); palItems = src.filter(a => !q || a.l.toLowerCase().includes(q)).slice(0, 12); palSel = 0; $('#palList').innerHTML = palItems.map((a, i) => `<li class="${i === 0 ? 'sel' : ''}" data-i="${i}">${esc(a.l)}<span class="k">${esc(a.k)}</span></li>`).join(''); $$('#palList li').forEach(li => li.onclick = () => go(+li.dataset.i)); }
+  function palRender() { const q = $('#palInput').value.toLowerCase().trim(); const src = palPick ? world.directory.map(r => ({ l: r.name, k: 'from', f: () => palPick(r) })) : actions(); palItems = src.filter(a => !q || a.l.toLowerCase().includes(q)).slice(0, 12); if (!palPick && /^([a-z]{2,5}\s?\d{0,5}|\d{5})$/i.test(q)) palItems.unshift({ l: `Search courses for “${q.toUpperCase()}”`, k: 'courses', f: () => world.findCourse(q) }); palSel = 0; $('#palList').innerHTML = palItems.map((a, i) => `<li class="${i === 0 ? 'sel' : ''}" data-i="${i}">${esc(a.l)}<span class="k">${esc(a.k)}</span></li>`).join(''); $$('#palList li').forEach(li => li.onclick = () => go(+li.dataset.i)); }
   const go = i => { const a = palItems[i]; if (!a) return; closePalette(); a.f(); };
   $('#palInput').oninput = palRender;
   $('#palInput').onkeydown = e => { if (e.key === 'ArrowDown') palSel = Math.min(palItems.length - 1, palSel + 1); else if (e.key === 'ArrowUp') palSel = Math.max(0, palSel - 1); else if (e.key === 'Enter') return go(palSel); else if (e.key === 'Escape') return closePalette(); else return; e.preventDefault(); $$('#palList li').forEach((li, i) => li.classList.toggle('sel', i === palSel)); };
   $('#palette').onclick = e => { if (e.target.id === 'palette') closePalette(); };
   $('#btnPalette').onclick = () => openPalette();
   window.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); } else if (e.key === 'Escape') { closePalette(); if (touring) endTour(); world.select(null); } });
-  on('ready', () => { if (!store.courses.length) setTimeout(() => toast('Tip: press ⌘K, or start the President’s Tour', 4500), 2500); });
+  on('ready', () => { if (!store.courses.length) setTimeout(() => toast('New here? Start with Courses to find your classes, or take the tour.', 4500), 2500); });
 }

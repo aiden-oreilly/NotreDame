@@ -72,3 +72,14 @@ supabase/migrations  schema
 ## Attribution
 
 © OpenStreetMap contributors. Imagery © Esri, Maxar, Earthstar Geographics. Weather by Open-Meteo. Not affiliated with or endorsed by the University of Notre Dame; "Notre Dame" is used descriptively.
+
+## Course catalog (v3)
+Every section Notre Dame publishes in PATH Class Search (classsearch.nd.edu) is mirrored into Supabase (`nd_terms`, `nd_sections`): course number, CRN, section, credits, days and times, dates, seats, waitlist, Core attributes, restrictions, cross-lists. The app searches it through the `search_sections` RPC.
+Refresh: `TERMS=202610,202620 SUPABASE_SERVICE_ROLE_KEY=... npm run courses` (about 15 minutes for two terms; polite rate of 5 requests at a time).
+Rooms and instructors are only shown by ND after NetID sign-in, so they are not in the public mirror. They arrive with Okta (below) or from the student's own calendar import.
+
+## Okta (Notre Dame NetID)
+Sign-in goes through `src/app/auth.js`. Okta is pre-wired as SAML 2.0 SSO via Supabase Auth (requires the Supabase Pro plan):
+1. ND OIT creates a SAML app in Okta. ACS URL: `https://gcrqhvfdqhtjowfhiebu.supabase.co/auth/v1/sso/saml/acs`. Entity ID: `https://gcrqhvfdqhtjowfhiebu.supabase.co/auth/v1/sso/saml/metadata`. Attributes: email, netid (uid), given_name, family_name, eduPersonPrimaryAffiliation.
+2. `supabase sso add --type saml --metadata-url <okta-metadata-url> --domains nd.edu --project-ref gcrqhvfdqhtjowfhiebu`
+3. In Vercel set `VITE_SSO=okta` and `VITE_SSO_DOMAIN=nd.edu`, redeploy. The "Notre Dame NetID" button goes live; `ndIdentity()` exposes netid, name and affiliation to the app.

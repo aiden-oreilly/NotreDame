@@ -77,7 +77,10 @@ export function createTrees(scene, trees, shared, castShadow) {
         .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWorldN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
           varying float vSeed; varying vec3 vWorldN; varying vec3 vObjP; uniform vec4 uSeason; uniform float uSnow;
-          float th(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }`)
+          float th(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }
+          float vn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(mix(th(i), th(i + vec3(1,0,0)), f.x), mix(th(i + vec3(0,1,0)), th(i + vec3(1,1,0)), f.x), f.y),
+                       mix(mix(th(i + vec3(0,0,1)), th(i + vec3(1,0,1)), f.x), mix(th(i + vec3(0,1,1)), th(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
         .replace('#include <color_fragment>', `#include <color_fragment>
           vec3 c;
           ${kind === 'con' ? `
@@ -89,9 +92,12 @@ export function createTrees(scene, trees, shared, castShadow) {
             vec3 win = vec3(0.27,0.24,0.21);
             c = pow(spr, vec3(2.2)) * uSeason.x + pow(sum, vec3(2.2)) * uSeason.y + pow(fal, vec3(2.2)) * uSeason.z + pow(win, vec3(2.2)) * uSeason.w;
             // bare branches in winter: alpha-hashed sparse canopy
-            if (uSeason.w > 0.5 && th(floor(vObjP * 2.0)) > 0.34) discard;
+            // leaves drop gradually through late fall; by deep winter only the branch silhouette is left
+            if (th(floor(vObjP * 2.0)) > 1.0 - 0.68 * smoothstep(0.15, 0.95, uSeason.w)) discard;
           `}
-          c *= 0.85 + 0.3 * th(floor(vObjP));
+          // leaf clumps catch light, the underside and the gaps between clumps sit in shadow
+          float clump = vn(vObjP * 1.3) * 0.65 + vn(vObjP * 3.1) * 0.35;
+          c *= (0.62 + 0.62 * clump) * mix(0.55, 1.05, smoothstep(-0.7, 0.7, vWorldN.y));
           c = mix(c, vec3(0.86,0.89,0.94), uSnow * smoothstep(0.35, 0.9, vWorldN.y) * ${kind === 'con' ? '0.85' : '0.6'});
           diffuseColor.rgb = c;`);
     };

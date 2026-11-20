@@ -198,7 +198,7 @@ function makeBuildingMaterial(shared) {
         float bh(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
         vec3 srgb(vec3 c){ return pow(c, vec3(2.2)); }
         vec3 styleColor(float s, float seed){
-          if (s < 0.5) return srgb(mix(vec3(0.80,0.70,0.52), vec3(0.86,0.76,0.58), seed));   // Notre Dame buff brick
+          if (s < 0.5) return srgb(mix(vec3(0.76,0.64,0.45), vec3(0.84,0.72,0.52), seed));   // Notre Dame buff ("St. Joseph") brick
           if (s < 1.5) return srgb(mix(vec3(0.82,0.78,0.69), vec3(0.88,0.84,0.75), seed));   // Indiana limestone
           if (s < 2.5) return srgb(vec3(0.62,0.66,0.70));                                    // glass and steel
           if (s < 3.5) return srgb(vec3(0.72,0.70,0.66));                                    // concrete
@@ -224,16 +224,27 @@ function makeBuildingMaterial(shared) {
           inWin *= step(0.6, ly) * step(ly, (vI.z - vI.y) - 1.0);
           if (style > 3.5) inWin *= step(0.45, bh(cell + seed));
           winMask = inWin;
+          // traditional buildings: limestone sills and lintels framing each window, and mullions in the glass
+          float trad = step(style, 1.5) * aa;
+          float colIn = smoothstep(ww - 0.05 - e2.x, ww - 0.05 + e2.x, wx) * (1.0 - smoothstep(1.0 - ww + 0.05 - e2.x, 1.0 - ww + 0.05 + e2.x, wx));
+          float sill = colIn * smoothstep(0.205 - e2.y, 0.205 + e2.y, wy) * (1.0 - smoothstep(0.28 - e2.y, 0.28 + e2.y, wy));
+          float lint = colIn * smoothstep(wt - e2.y, wt + e2.y, wy) * (1.0 - smoothstep(wt + 0.07 - e2.y, wt + 0.07 + e2.y, wy));
+          float trim = (sill + lint) * trad * step(0.6, ly) * step(ly, (vI.z - vI.y) - 1.0);
+          float mull = inWin * trad * max(1.0 - smoothstep(0.0, 0.025 + e2.x, abs(wx - 0.5)), 1.0 - smoothstep(0.0, 0.03 + e2.y, abs(wy - (0.28 + wt) * 0.5)));
           // brick/stone coursing
           float course = smoothstep(0.0, 0.08, abs(fract(ly / 0.62) - 0.5)) * 0.06;
           col *= 0.94 + course + (bh(floor(vec2(vU * 2.0, ly * 3.0)) + seed) - 0.5) * 0.05;
-          // cornice and plinth
-          col *= mix(0.78, 1.0, smoothstep(0.0, 1.2, ly));
+          // ground contact shadow, plinth and rain streaks under the cornice
+          col *= mix(0.6, 1.0, smoothstep(0.0, 3.2, ly));
+          col *= 1.0 - 0.07 * smoothstep(0.55, 1.0, bh(vec2(floor(vU * 0.9), seed))) * smoothstep(vI.z - vI.y - 6.0, vI.z - vI.y - 1.0, ly);
+          col = mix(col, srgb(vec3(0.87,0.84,0.76)), trim * 0.9);
           col *= 1.0 + 0.10 * smoothstep(vI.z - vI.y - 1.0, vI.z - vI.y - 0.4, ly);
           vec3 glass = mix(vec3(0.05,0.065,0.08), vec3(0.16,0.19,0.22), bh(cell * 1.7 + seed));
           float cover = (1.0 - 2.0 * ww) * (wt - 0.28);
           vec3 avg = mix(col, glass, cover * 0.75);
           col = mix(avg, mix(col, glass, inWin), aa);
+          col = mix(col, srgb(vec3(0.86,0.84,0.78)), mull * 0.85);
+          winMask *= 1.0 - mull;
           inWin *= aa;
           lit = inWin * step(0.48, bh(cell + seed * 7.0 + 3.0)) * uNight;
         } else if (kind > 0.5 && kind < 1.5) {
@@ -254,14 +265,14 @@ function makeBuildingMaterial(shared) {
         float sel = 1.0 - step(0.5, abs(vB.x - uSel));
         float hov = 1.0 - step(0.5, abs(vB.x - uHover));
       `)
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.12, winMask);')
-      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n metalnessFactor = mix(metalnessFactor, 0.6, winMask);')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.06, winMask);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n metalnessFactor = mix(metalnessFactor, 0.78, winMask);')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += vec3(1.0, 0.72, 0.42) * lit * (0.6 + 0.6 * bh(vec2(seed, 3.1)));
         totalEmissiveRadiance += vec3(0.85, 0.62, 0.15) * sel * (0.10 + 0.05 * sin(uTime * 3.0));
         totalEmissiveRadiance += vec3(0.6, 0.6, 0.6) * hov * 0.05;`);
   };
-  mat.customProgramCacheKey = () => 'bldg-v3';
+  mat.customProgramCacheKey = () => 'bldg-v4';
   return mat;
 }
 

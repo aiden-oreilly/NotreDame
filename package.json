@@ -1,12 +1,13 @@
 {
   "name": "domer-os",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Domer OS: a living 3D model of the University of Notre Dame with schedule, calendar and campus history.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "data": "node scripts/fetch-campus.mjs"
+    "data": "node scripts/fetch-campus.mjs",
+    "courses": "node scripts/scrape-courses.mjs && node scripts/load-courses.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",

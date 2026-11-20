@@ -23,6 +23,7 @@ if (tier === 'battery') renderer.setPixelRatio(1);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xb9cde0, 2600, 9000);
+const fogDay = new THREE.Color(), fogGold = new THREE.Color(0.96, 0.80, 0.62), fogGrey = new THREE.Color(0.74, 0.76, 0.79), fogNight = new THREE.Color(0.035, 0.06, 0.11);
 const cam = createCamera(canvas); const { camera, controls } = cam;
 const { composer, grade, bloom, gtao } = createComposer(renderer, scene, camera, tier);
 
@@ -229,7 +230,9 @@ function frame() {
   bloom.strength = 0.22 + st.night * 0.75; bloom.threshold = st.night > 0.5 ? 0.6 : 0.92;
   gu.uWarm.value = st.golden * 0.8 + (effectiveSeason() === 'fall' ? 0.25 : effectiveSeason() === 'winter' ? -0.35 : 0);
   renderer.toneMappingExposure = THREE.MathUtils.lerp(0.62, 0.95, st.night) * (shared.uSnow.value > 0.5 ? 0.88 : 1);
-  scene.fog.color.setHSL(0.6, 0.35, THREE.MathUtils.lerp(0.78, 0.06, st.night)); scene.fog.near = 1800 + cloud * -600; scene.fog.far = 8000 - cloud * 2500;
+  // aerial perspective: haze takes the sky's colour, warm at golden hour, cool and grey under cloud, deep navy at night
+  fogDay.setRGB(0.70, 0.79, 0.89).lerp(fogGold, Math.min(1, st.golden * 0.85)).lerp(fogGrey, cloud * 0.6);
+  scene.fog.color.copy(fogDay).lerp(fogNight, st.night); scene.fog.near = 1300 - cloud * 500; scene.fog.far = 7600 - cloud * 2600;
   if (world.water) { const u = world.water.mat.uniforms; u.uTime.value = time; u.uSun.value.copy(st.sunDir); u.uIce.value = shared.uSnow.value > 0.3 ? Math.min(1, shared.uSnow.value * 1.1) : 0; u.uNight.value = st.night; }
   if (world.landmarks) world.landmarks.update({ era: shared.uEra.value, night: st.night, time });
   if (world.lamps) world.lamps.update(st.night);
