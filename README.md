@@ -83,3 +83,6 @@ Sign-in goes through `src/app/auth.js`. Okta is pre-wired as SAML 2.0 SSO via Su
 1. ND OIT creates a SAML app in Okta. ACS URL: `https://gcrqhvfdqhtjowfhiebu.supabase.co/auth/v1/sso/saml/acs`. Entity ID: `https://gcrqhvfdqhtjowfhiebu.supabase.co/auth/v1/sso/saml/metadata`. Attributes: email, netid (uid), given_name, family_name, eduPersonPrimaryAffiliation.
 2. `supabase sso add --type saml --metadata-url <okta-metadata-url> --domains nd.edu --project-ref gcrqhvfdqhtjowfhiebu`
 3. In Vercel set `VITE_SSO=okta` and `VITE_SSO_DOMAIN=nd.edu`, redeploy. The "Notre Dame NetID" button goes live; `ndIdentity()` exposes netid, name and affiliation to the app.
+
+## Repo and deploys
+Source: https://github.com/aiden-oreilly/NotreDame (main). Production (domer-os.vercel.app) builds from this repo. To auto-deploy on every push: Vercel > domer-os > Settings > Git > Connect Git Repository > aiden-oreilly/NotreDame.
