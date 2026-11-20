@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Domer OS · University of Notre Dame</title>
+<meta name="description" content="A living 3D model of the University of Notre Dame with your schedule, calendar and campus history.">
+<meta name="theme-color" content="#0C2340">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+<a class="skip" href="#drawer">Skip to content</a>
+<div id="app">
+  <canvas id="gl" aria-label="3D model of the Notre Dame campus"></canvas>
+  <div id="labels" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c-5.2 0-9 4.4-9 10v2h18v-2c0-5.6-3.8-10-9-10z" fill="url(#g1)"/><rect x="5" y="15" width="22" height="3" fill="#E1B84B"/><rect x="7" y="18" width="18" height="10" fill="none" stroke="#E1B84B" stroke-width="1.6"/><path d="M16 0v4" stroke="#E1B84B" stroke-width="1.6"/><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6D77A"/><stop offset="1" stop-color="#B98D1E"/></linearGradient></defs></svg>
+      <div class="wordmark"><span class="uni">University of Notre Dame</span><span class="prod">Domer OS <i>Campus</i></span></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" data-tab="explore" class="on"><b>01</b>Explore</button>
+      <button role="tab" data-tab="schedule"><b>02</b>Schedule</button>
+      <button role="tab" data-tab="calendar"><b>03</b>Calendar</button>
+      <button role="tab" data-tab="dispatch"><b>04</b>Dispatch</button>
+    </nav>
+    <div class="right">
+      <span class="wx" id="wx" title="Live conditions on campus"><i></i><span>South Bend</span></span>
+      <button class="kbtn" id="btnPalette" aria-label="Search">Search <kbd>⌘K</kbd></button>
+      <button class="tour-btn" id="btnTour">President's Tour</button>
+      <button class="acct" id="btnAcct" aria-label="Account">Sign in</button>
+    </div>
+  </header>
+
+  <aside class="drawer" id="drawer" aria-label="Panel">
+    <button class="drawer-toggle" id="drawerToggle" aria-label="Collapse panel">‹</button>
+    <!-- EXPLORE -->
+    <section class="pane on" id="pane-explore">
+      <div class="eyebrow">01 · Explore</div>
+      <h1>The campus, <em>exactly.</em></h1>
+      <p class="lede">Every building footprint comes from OpenStreetMap, every roof and lawn from aerial imagery, every walk from the real path network. Scrub through 140 years below.</p>
+      <div class="stats" id="stats"></div>
+      <div class="search"><input id="bSearch" placeholder="Find a building, hall or landmark" autocomplete="off"></div>
+      <div class="chips" id="catChips"></div>
+      <ol class="blist" id="bList"></ol>
+      <div class="fine" id="credits"></div>
+    </section>
+    <!-- SCHEDULE -->
+    <section class="pane" id="pane-schedule">
+      <div class="eyebrow">02 · Schedule</div>
+      <h1 id="schedTitle">Today</h1>
+      <div id="nextUp"></div>
+      <div class="rule-h"><span>Today's plan</span><button class="link" id="btnRecap">Morning recap</button></div>
+      <ol class="timeline" id="todayList"></ol>
+      <div class="rule-h"><span>Courses</span><button class="link" id="btnAddCourse">+ Add course</button></div>
+      <form class="form" id="courseForm" hidden>
+        <label class="full">Course<input id="cTitle" placeholder="FIN 30210 Investment Theory" required></label>
+        <label class="full">Building<select id="cBld"></select></label>
+        <label class="full">Days<div class="days" id="cDays"><button type="button" data-d="M">M</button><button type="button" data-d="T">T</button><button type="button" data-d="W">W</button><button type="button" data-d="R">R</button><button type="button" data-d="F">F</button></div></label>
+        <label>Starts<input id="cStart" type="time" value="09:30" required></label>
+        <label>Ends<input id="cEnd" type="time" value="10:45" required></label>
+        <label>Room<input id="cRoom" placeholder="101"></label>
+        <label>Home base<select id="cHome"></select></label>
+        <div class="full actions"><button type="button" class="btn ghost" id="cCancel">Cancel</button><button class="btn gold" id="cSave">Save course</button></div>
+      </form>
+      <ol class="courses" id="courseList"></ol>
+    </section>
+    <!-- CALENDAR -->
+    <section class="pane" id="pane-calendar">
+      <div class="eyebrow">03 · Calendar</div>
+      <h1>Link your calendar, <em>get your courses.</em></h1>
+      <p class="lede">Domer OS reads your Google Calendar, finds the weekly events that are classes, matches each to its building and puts them on the map. It never writes to your calendar.</p>
+      <div class="methods">
+        <button class="method" id="mGoogle"><b>Google account</b><span id="mGoogleNote">One click with your nd.edu Google sign-in</span></button>
+        <button class="method" id="mIcs"><b>Secret iCal address</b><span>Paste the private link from Google Calendar settings</span></button>
+        <label class="method" for="icsFile"><b>Upload .ics</b><span>Export from Google, Outlook or Apple Calendar</span><input type="file" id="icsFile" accept=".ics,text/calendar" hidden></label>
+      </div>
+      <form class="icsform" id="icsForm" hidden>
+        <ol class="howto"><li>Open Google Calendar on a computer → <b>Settings</b>.</li><li>Under <b>Settings for my calendars</b>, pick your nd.edu calendar.</li><li>Scroll to <b>Integrate calendar</b> and copy <b>Secret address in iCal format</b>.</li></ol>
+        <input id="icsUrl" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="off">
+        <div class="actions"><button type="button" class="btn ghost" id="icsCancel">Cancel</button><button class="btn gold">Read calendar</button></div>
+      </form>
+      <div id="calStatus" class="status" hidden></div>
+      <div id="detect"></div>
+      <div class="rule-h"><span>Next 7 days</span><button class="link" id="btnCalRefresh">Refresh</button></div>
+      <ol class="events" id="eventList"></ol>
+    </section>
+    <!-- DISPATCH -->
+    <section class="pane" id="pane-dispatch">
+      <div class="eyebrow">04 · Dispatch</div>
+      <h1>One queue. <em>You close.</em></h1>
+      <p class="lede">Every job is a card with an owner, a status, a check-in date and one "Done when" line. Agents prepare; only you mark a card Done, and each close goes in the decision log.</p>
+      <form class="form" id="cardForm">
+        <label class="full">New card<input id="kTitle" placeholder="What's the job?" required></label>
+        <label>Owner<select id="kOwner"><option>Me</option><option>Muse</option><option>Claude</option></select></label>
+        <label>Check-in<input id="kCheck" type="date"></label>
+        <label class="full">Done when<input id="kDone" placeholder="Done when …"></label>
+        <div class="full actions"><button class="btn gold">Add to Inbox</button></div>
+      </form>
+      <div class="board" id="board"></div>
+      <div class="rule-h"><span>Sunday review · untouched 7+ days</span></div>
+      <ol class="stale" id="stale"></ol>
+    </section>
+  </aside>
+
+  <!-- Building card -->
+  <article class="bcard" id="bcard" hidden>
+    <button class="x" id="bcardX" aria-label="Close">×</button>
+    <div class="eyebrow" id="bcEyebrow"></div>
+    <h2 id="bcName"></h2>
+    <p id="bcBlurb"></p>
+    <dl class="facts" id="bcFacts"></dl>
+    <div id="bcClasses"></div>
+    <div class="actions"><button class="btn gold" id="bcWalk">Walk here</button><button class="btn" id="bcOrbit">Orbit</button><button class="btn" id="bcAdd">Add class here</button></div>
+  </article>
+
+  <!-- Map HUD -->
+  <div class="hud">
+    <button id="compass" class="compass" aria-label="Reset to north"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-opacity=".35"/><path d="M20 5l5 15h-10z" fill="#E1B84B"/><path d="M20 35l-5-15h10z" fill="currentColor" fill-opacity=".5"/><text x="20" y="13" text-anchor="middle" font-size="6" fill="#0C2340" font-family="JetBrains Mono">N</text></svg></button>
+    <button id="zIn" aria-label="Zoom in">+</button><button id="zOut" aria-label="Zoom out">−</button>
+    <button id="btnHome" aria-label="Campus overview" title="Overview">⌂</button>
+    <select id="quality" aria-label="Render quality"><option value="cinematic">Cinematic</option><option value="balanced">Balanced</option><option value="battery">Battery</option></select>
+  </div>
+
+  <!-- Time machine dock -->
+  <section class="dock" aria-label="Time machine">
+    <div class="era">
+      <div class="dock-label">Time machine</div>
+      <div class="yearbig" id="yearBig">2026</div>
+      <div class="rail" id="eraRail"></div>
+    </div>
+    <div class="season">
+      <div class="dock-label">Season</div>
+      <div class="seg" id="seasonSeg"><button data-s="live" class="on">Live</button><button data-s="spring">Spring</button><button data-s="summer">Summer</button><button data-s="fall">Fall</button><button data-s="winter">Winter</button></div>
+    </div>
+    <div class="tod">
+      <div class="dock-label">Time of day <output id="todOut">Now</output></div>
+      <input type="range" id="tod" min="5" max="23.5" step="0.05" value="12">
+    </div>
+  </section>
+
+  <div class="caption" id="eraCaption" hidden><div class="eyebrow" id="ecEyebrow"></div><h3 id="ecTitle"></h3><p id="ecText"></p></div>
+  <div class="tourcap" id="tourCap" hidden><div class="idx" id="tcIdx"></div><div class="cap" id="tcText"></div><button id="tcStop" class="btn ghost light">End tour</button></div>
+  <div class="attrib" id="attrib"></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="intro" id="intro">
+    <div class="intro-in">
+      <div class="eyebrow light">Domer OS</div>
+      <div class="intro-title">Notre Dame</div>
+      <div class="intro-sub">A living model of the campus, built from the ground up.</div>
+      <ol class="intro-steps" id="introSteps"></ol>
+      <div class="intro-bar"><i id="introBar"></i></div>
+    </div>
+  </div>
+
+  <div class="palette" id="palette" hidden><div class="pbox"><input id="palInput" placeholder="Fly to a building, change the season, travel to 1931…" autocomplete="off"><ol id="palList"></ol></div></div>
+  <div class="modal" id="authModal" hidden><div class="mbox"><button class="x" data-close>×</button><div class="eyebrow">Account</div><h2>Sign in to sync</h2><p>Your courses and queue stay on this device until you sign in. Signing in keeps them in sync across your phone and laptop, privately.</p><form id="authForm"><input id="authEmail" type="email" placeholder="netid@nd.edu" required><button class="btn gold">Email me a sign-in link</button></form><button class="btn" id="authGoogle">Continue with Google</button><p class="fine" id="authNote"></p></div></div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
